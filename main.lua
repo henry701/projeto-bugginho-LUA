@@ -3,21 +3,36 @@
 -- Mesmo jeito de declarar file-encoding do que Python? Hm. Legal.
 
 -- Copiado do módulo, porque achei interessante o conceito de manter o máximo das coisas possíveis em uma tabela local, 
--- mesmo esse sendo o arquivo principal do programa.
+-- mesmo esse sendo o arquivo principal do programa. Fora que boatos que aumenta a eficiência também.
 local _G, table, string, math, tonumber, tostring, type, print = _G, table, string, math, tonumber, tostring, type, print;
 
-print("Hello World!\n\n\n") -- Tem que ter né
+print("Hello World!"); -- Tem que ter né
+
+-- Foi uma das últimas coisas que eu achei, eta beleza!
+os.setlocale('pt_BR');
+
+-- http://stackoverflow.com/questions/5243179/what-is-the-neatest-way-to-split-out-a-path-name-into-its-components-in-lua
+-- YEEEEEEEEEEHAAAAAAAAA
+CURRENT_PATH = (string.match(arg[0], "(.-)([^\\/]-%.?([^%.\\/]*))$"));
+
+CAMINHO_CONVIDADOS = CURRENT_PATH .. "convidados.json";
 
 -- Meio que uma shim que eu achei, porque as versões novas do Lua depreciaram a keyword module, mas o módulo de validação usa ela.
-require "module_shim";
+require "./includes/module_shim";
 
 -- Peguei esse módulo de um site arquivado, linguagem assim tem que cavar pra achar...
 -- http://web.archive.org/web/20140412004316/http://manoelcampos.com/2011/02/14/validando-cpf-cnpj-em-lua/?wpmp_switcher=mobile
-require "valid";
+require "./includes/valid";
+
+
+-- Esse deu um rolezinho de fazer, hein!
+require "./includes/encapsulate";
+
 
 -- Só preferi esse módulo porque tem regex no nome do site, regex é amor, regex é vida.
 -- http://regex.info/blog/lua/json
-JSON=(loadfile "JSON.lua")();
+JSON = (loadfile(CURRENT_PATH .. "includes/JSON.lua"))();
+
 
 -- Primeiro as declarações de funções
 -- Eta linguagem sofrida que não tem hoisting...
@@ -27,7 +42,7 @@ JSON=(loadfile "JSON.lua")();
 	end
 
 	function string.trim(self)
-		return self:match'^()%s*$' and '' or self:match'^%s*(.*%S)'
+		return self:match'^()%s*$' and '' or self:match'^%s*(.*%S)';
 	end
 
     function io.flushread(outask, readq)
@@ -53,9 +68,9 @@ JSON=(loadfile "JSON.lua")();
 	end
 	
 	function ZeroSaiUmFica()
-		local res
+		local res;
 		repeat
-			print("Deseja continuar a operação atual?")
+			print("Deseja continuar a operação atual?");
 			res = tonumber(io.flushread("0 = Sair || 1 = Continuar: "));
 			if res == 0 then
 				return false;
@@ -90,13 +105,13 @@ JSON=(loadfile "JSON.lua")();
     function menu_principal()
 		io.clearScreen();
 		
-    	print("========= MENU PRINCIPAL =========");
+    	print("================ MENU PRINCIPAL ================");
     	print("1 - Cadastrar Convidados");
     	print("2 - Consultar Convidado por CPF");
     	print("3 - Listar Convidados");
     	print("4 - Listar Removidos");
 		print("5 - Sair do Programa");
-    	print("==================================");
+    	print("================================================");
 		print();
     	io.write("Insira sua opção: ");
     	
@@ -114,7 +129,7 @@ JSON=(loadfile "JSON.lua")();
     end
     
     function cadastrar_convidado()
-        io.write("======= CADASTRAR CONVIDADO =======\n");
+        print("============ CADASTRAR CONVIDADO ============\n");
 		local cpf, nome, rsp;
 		
 		repeat
@@ -153,13 +168,26 @@ JSON=(loadfile "JSON.lua")();
 		};
 		
 		print("\nCONVIDADO FOI CADASTRADO!");
-		io.flushgetchar();
+		
+		repeat
+			print("\nDeseja cadastrar outro convidado?");
+			rs = io.flushread("[S]im || [N]ão: "):lower();
+			if(rs == "s") then
+				io.clearScreen();
+				return cadastrar_convidado();
+			end
+			if(rs ~= "n") then
+				print("Opção Inválida!");
+			else
+				break;
+			end
+		until false
 		
 		return true;	
     end
     
     function consultar_convidado()
-		io.write("======== CONSULTAR CONVIDADO ========\n");
+		print("============= CONSULTAR CONVIDADO =============\n");
         local cpf, convidado, rs;
 
 		repeat
@@ -169,6 +197,7 @@ JSON=(loadfile "JSON.lua")();
 				print("CPF não existente!");
 				rsp = ZeroSaiUmFica();
 				if rsp == false then
+					io.clearScreen();
 					return;
 				end
 			else
@@ -178,18 +207,19 @@ JSON=(loadfile "JSON.lua")();
 		
 		print("\nCONVIDADO ENCONTRADO!");
 		print("Nome: " .. convidado.nome);
+		print("CPF: " .. MascaraCPF(cpf));
 		-- Esse ternário simulado é um exercício mental divertido, até porque JavaScript
 		-- também tem a forma de fazer a mesma coisa. Hoje fiquei o dia todo estudando.
-		print("Estado: " .. ((convidado.motivo and "Removido") or "Convidado"));
+		print("Estado: " .. ((convidado.motivo and convidado.motivo ~= "" and "Removido") or "Convidado"));
 		-- Uma pena que precisa desse "rs =" aqui por motivos sintáticos, seria um belo ternário...
-		rs = (convidado.motivo and (print("Motivo de remoção: " .. convidado.motivo)));
+		rs = (convidado.motivo and convidado.motivo ~= "" and (print("Motivo de remoção: " .. convidado.motivo)));
 		
-		if convidado.motivo == nil then
+		if convidado.motivo == nil or convidado.motivo == "" then
 			repeat
 				print("\nDeseja excluir este convidado?");
 				rs = io.flushread("[S]im || [N]ão: "):lower();
 				if(rs == "s") then
-					local motivo = io.flushread("Insira o motivo: ");
+					local motivo = io.flushread("\nInsira o motivo: ");
 					excluir_convidado(cpf, motivo);
 					print("\nCONVIDADO EXCLUÍDO!\n");
 					break;
@@ -204,8 +234,8 @@ JSON=(loadfile "JSON.lua")();
 				print("\nDeseja re-convidar este convidado?");
 				rs = io.flushread("[S]im || [N]ão: "):lower();
 				if(rs == "s") then
-					TabelaConvidadosProxy[cpf].motivo = nil;
-					print("\nCONVIDADO RE-CONVIDADO!\n");
+					TabelaConvidadosProxy[cpf].motivo = "";
+					print("\nCONVIDADO RE-CONVIDADO!");
 					break;
 				elseif(rs ~= "n") then
 					print("Opção Inválida!");
@@ -219,6 +249,7 @@ JSON=(loadfile "JSON.lua")();
 			print("\nDeseja consultar outro convidado?");
 			rs = io.flushread("[S]im || [N]ão: "):lower();
 			if(rs == "s") then
+				io.clearScreen();
 				return consultar_convidado();
 			end
 			if(rs ~= "n") then
@@ -232,12 +263,29 @@ JSON=(loadfile "JSON.lua")();
     end
     
     function listar_convidados()
-        
+		print("========== LISTA DE CONVIDADOS ==========\n");
+        for key, value in pairs(TabelaConvidadosProxy) do
+			if value.motivo == nil or value.motivo == "" then
+				print("Nome: " .. value.nome);
+				print("CPF:  " .. MascaraCPF(key) .. "\n");
+			end
+		end
+		print("\n============= FIM DA LISTA ==============\n");
+		io.flushgetchar();
 		return true;
     end
     
     function listar_removidos()
-        
+		print("===== LISTA DE CONVIDADOS REMOVIDOS =====\n");
+        for key, value in pairs(TabelaConvidadosProxy) do
+			if value.motivo ~= nil and value.motivo ~= "" then
+				print("Nome:   " .. value.nome);
+				print("CPF:    " .. MascaraCPF(key));
+				print("Motivo: " .. value.motivo .. "\n");
+			end
+		end
+		print("============= FIM DA LISTA ==============\n");
+		io.flushgetchar();
 		return true;
     end
 	
@@ -250,9 +298,17 @@ JSON=(loadfile "JSON.lua")();
 		os.exit();
 	end
 	
+	function MascaraCPF(cpf)
+		local cpf = tostring(cpf);
+		cpf = cpf:gsub("%D", "");
+		cpf = string.rep("0", 11-#cpf)..cpf;
+		cpf = cpf:sub(1, 3) .. "." .. cpf:sub(4, 6) .. "." .. cpf:sub(7, 9) .. "-" .. cpf:sub(10, 11);
+		return cpf;
+	end
+	
 	-- Apagar e regravar o JSON no arquivo
 	function GravarArq(tabela)
-		ArquivoTabela = io.open("convidados.json", "w");
+		ArquivoTabela = io.open(CAMINHO_CONVIDADOS, "w");
 		ArquivoTabela:write( JSON:encode_pretty( tabela ) );
 		ArquivoTabela:close();
 		return true;
@@ -338,46 +394,19 @@ TabelaConvidadosProxy = { };
 function main()
 	-- Carregar dados do arquivo, se ele existir.
 	local TabelaConvidados = {  };
-	ArquivoTabela = io.open("convidados.json", "r");
+	ArquivoTabela = io.open(CAMINHO_CONVIDADOS, "r");
 	if ArquivoTabela ~= nil then
 		local content = ArquivoTabela:read("*all");
 		ArquivoTabela:close();
 		TabelaConvidados = (JSON:decode(content) or { });
 	end
 
-	-- Aqui está aquilo dos proxies que eu falei.
-	-- Essa função recursiva garante que as metatables vão ter acesso a mudanças
-	-- de conteúdo nas tabelas filhas também.
-	local index_set_listener;
-	function index_set_listener(tbl, key, value)
-		print("GVRD", tbl, key, value);
-		if type(value) == "table" then
-			local proxy = { };
-			setmetatable(proxy, { __newindex = index_set_listener, __index = value, __pairs = value });
-		end
-		rawset(tbl, key, value);
+	-- Aqui está aquilo dos proxies que eu falei. Ficou tão grande que transformei
+	-- em outro arquivo essa caralha. Mas dá uma boa biblioteca de encapsulamento ;)
+	local function hook(proxy, tbl, key, value, ValorReal)
 		GravarArq(TabelaConvidados);
-		return proxy;
 	end
-	setmetatable(TabelaConvidadosProxy,
-	{
-		__newindex = index_set_listener,
-		__index = TabelaConvidados,
-		__tostring = function() return tostring(TabelaConvidados); end,
-		__metatable = false, -- |=)|]
-		__pairs = TabelaConvidados
-	});
-	setmetatable(TabelaConvidados,
-	{
-		__newindex = index_set_listener
-	});
-	-- Aqui precisamos atribuir ela aos itens que já foram carregados do JSON, 
-	-- para isso usamos um loop com pairs.
-	for key, value in pairs(TabelaConvidados) do
-		if type(value) == "table" then
-			setmetatable(value, { __newindex = index_set_listener });
-		end
-	end
+	TabelaConvidadosProxy = encapsulate.WatchTable(TabelaConvidados, hook);
 
     menu_principal();
 end
